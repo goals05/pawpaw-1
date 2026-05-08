@@ -1,31 +1,40 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { PawPrint, Heart, Info } from 'lucide-react';
+import { PawPrint } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface AuthScreenProps {
   onComplete: (userData: any) => void;
+  initialMode?: 'login' | 'register' | 'reset' | 'update';
 }
 
-export function AuthScreen({ onComplete }: AuthScreenProps) {
-  const [isRegistering, setIsRegistering] = useState(false);
+export function AuthScreen({ onComplete, initialMode = 'login' }: AuthScreenProps) {
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'reset' | 'update'>(initialMode);
   const [email, setEmail] = useState('');
+
+  useEffect(() => {
+    if (initialMode) {
+      setAuthMode(initialMode);
+    }
+  }, [initialMode]);
+
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [role, setRole] = useState<'butler' | 'fan'>('fan');
   const [petName, setPetName] = useState('');
   const [hospital, setHospital] = useState('');
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setMessage('');
     setLoading(true);
 
     try {
-      if (isRegistering) {
+      if (authMode === 'register') {
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -51,7 +60,7 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
 
         if (dbError) throw dbError;
         onComplete(userData);
-      } else {
+      } else if (authMode === 'login') {
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -80,6 +89,19 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
         } else {
           onComplete(profile);
         }
+      } else if (authMode === 'reset') {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin,
+        });
+        if (resetError) throw resetError;
+        setMessage('비밀번호 재설정 이메일이 발송되었습니다. 메일함을 확인해주세요.');
+      } else if (authMode === 'update') {
+        const { error: updateError } = await supabase.auth.updateUser({
+          password: newPassword,
+        });
+        if (updateError) throw updateError;
+        setMessage('비밀번호가 성공적으로 변경되었습니다. 다시 로그인해주세요.');
+        setTimeout(() => setAuthMode('login'), 2000);
       }
     } catch (err: any) {
       setError(err.message);
@@ -95,12 +117,16 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
       const { error: googleError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         }
       });
       if (googleError) throw googleError;
     } catch (err: any) {
-      setError(err.message);
+      setError(`구글 로그인 실패: ${err.message}. Supabase 대시보드에서 Redirect URLs에 현재 도메인이 추가되어 있는지 확인해주세요.`);
       setLoading(false);
     }
   };
@@ -117,34 +143,68 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
             <PawPrint className="w-12 h-12" />
           </div>
           <h1 className="text-3xl font-black text-brand-brown tracking-tighter">PAWPAW</h1>
-          <p className="text-text-sub text-sm font-medium mt-1">오직 귀여움과 건강에만 집중하는 공간</p>
+          <p className="text-text-sub text-sm font-medium mt-1">
+            {authMode === 'reset' ? '비밀번호 재설정 요청' : 
+             authMode === 'update' ? '새 비밀번호 설정' : 
+             '오직 귀여움과 건강에만 집중하는 공간'}
+          </p>
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-text-sub uppercase tracking-widest mb-1 px-1">이메일</label>
-            <input 
-              type="email" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-5 py-3 bg-bg-alt border border-border-base focus:border-brand focus:bg-white rounded-2xl outline-none transition-all placeholder:text-text-sub/50"
-              placeholder="example@email.com"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-text-sub uppercase tracking-widest mb-1 px-1">비밀번호</label>
-            <input 
-              type="password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-5 py-3 bg-bg-alt border border-border-base focus:border-brand focus:bg-white rounded-2xl outline-none transition-all placeholder:text-text-sub/50"
-              placeholder="••••••••"
-              required
-            />
-          </div>
+          {authMode !== 'update' && (
+            <div>
+              <label className="block text-xs font-bold text-text-sub uppercase tracking-widest mb-1 px-1">이메일</label>
+              <input 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-5 py-3 bg-bg-alt border border-border-base focus:border-brand focus:bg-white rounded-2xl outline-none transition-all placeholder:text-text-sub/50"
+                placeholder="example@email.com"
+                required
+              />
+            </div>
+          )}
 
-          {isRegistering && (
+          {authMode !== 'reset' && authMode !== 'update' && (
+            <div>
+              <div className="flex justify-between items-center mb-1 px-1">
+                <label className="block text-xs font-bold text-text-sub uppercase tracking-widest">비밀번호</label>
+                {authMode === 'login' && (
+                  <button 
+                    type="button"
+                    onClick={() => setAuthMode('reset')}
+                    className="text-[10px] font-bold text-brand hover:underline"
+                  >
+                    비밀번호를 잊으셨나요?
+                  </button>
+                )}
+              </div>
+              <input 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-5 py-3 bg-bg-alt border border-border-base focus:border-brand focus:bg-white rounded-2xl outline-none transition-all placeholder:text-text-sub/50"
+                placeholder="••••••••"
+                required
+              />
+            </div>
+          )}
+
+          {authMode === 'update' && (
+            <div>
+              <label className="block text-xs font-bold text-text-sub uppercase tracking-widest mb-1 px-1">새 비밀번호</label>
+              <input 
+                type="password" 
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full px-5 py-3 bg-bg-alt border border-border-base focus:border-brand focus:bg-white rounded-2xl outline-none transition-all placeholder:text-text-sub/50"
+                placeholder="새 비밀번호 입력"
+                required
+              />
+            </div>
+          )}
+
+          {authMode === 'register' && (
             <div className="space-y-4 pt-2">
               <div className="flex gap-2 p-1.5 bg-bg-alt rounded-2xl border border-border-base">
                 <button
@@ -197,43 +257,78 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
           )}
 
           {error && <p className="text-red-500 text-[11px] font-medium px-1 underline decoration-red-200">{error}</p>}
+          {message && <p className="text-brand text-[11px] font-bold px-1">{message}</p>}
 
           <button 
             type="submit"
             disabled={loading}
             className="w-full py-4 bg-brand text-white font-black text-sm uppercase tracking-widest rounded-2xl hover:bg-brand/90 transition-all shadow-lg shadow-brand/20 disabled:opacity-50 active:scale-95"
           >
-            {loading ? '처음 만나는 중...' : (isRegistering ? '시작하기' : '들어오기')}
+            {loading ? '진행 중...' : (
+              authMode === 'register' ? '시작하기' : 
+              authMode === 'login' ? '들어오기' : 
+              authMode === 'reset' ? '재설정 메일 보내기' : '비밀번호 변경하기'
+            )}
           </button>
         </form>
 
-        <div className="relative my-8">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-border-base"></div>
-          </div>
-          <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest">
-            <span className="bg-white px-3 text-text-sub">PAW CONNECTION</span>
-          </div>
+        {(authMode === 'login' || authMode === 'register') && (
+          <>
+            <div className="relative my-8">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border-base"></div>
+              </div>
+              <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest">
+                <span className="bg-white px-3 text-text-sub">PAW CONNECTION</span>
+              </div>
+            </div>
+
+            <button 
+              onClick={signInWithGoogle}
+              disabled={loading}
+              className="w-full py-3.5 border border-border-base text-brand-brown font-bold text-xs rounded-2xl hover:bg-bg-alt transition-colors flex items-center justify-center gap-2"
+            >
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" />
+              구글 계정으로 연결하기
+            </button>
+          </>
+        )}
+
+        <div className="mt-8 text-center text-xs font-medium text-text-sub">
+          {authMode === 'login' && (
+            <>
+              아직 식구가 아니신가요?
+              <button 
+                type="button"
+                onClick={() => setAuthMode('register')}
+                className="ml-2 text-brand font-black underline decoration-brand-base underline-offset-4"
+              >
+                지금 가입하기
+              </button>
+            </>
+          )}
+          {authMode === 'register' && (
+            <>
+              가입된 계정이 있으신가요?
+              <button 
+                type="button"
+                onClick={() => setAuthMode('login')}
+                className="ml-2 text-brand font-black underline decoration-brand-base underline-offset-4"
+              >
+                로그인하기
+              </button>
+            </>
+          )}
+          {authMode === 'reset' && (
+            <button 
+              type="button"
+              onClick={() => setAuthMode('login')}
+              className="text-brand font-black underline decoration-brand-base underline-offset-4"
+            >
+              로그인 화면으로 돌아가기
+            </button>
+          )}
         </div>
-
-        <button 
-          onClick={signInWithGoogle}
-          disabled={loading}
-          className="w-full py-3.5 border border-border-base text-brand-brown font-bold text-xs rounded-2xl hover:bg-bg-alt transition-colors flex items-center justify-center gap-2"
-        >
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" />
-          구글 계정으로 연결하기
-        </button>
-
-        <p className="mt-8 text-center text-xs font-medium text-text-sub">
-          {isRegistering ? '가입된 계정이 있으신가요?' : '아직 식구가 아니신가요?'}
-          <button 
-            onClick={() => setIsRegistering(!isRegistering)}
-            className="ml-2 text-brand font-black underline decoration-brand-base underline-offset-4"
-          >
-            {isRegistering ? '로그인하기' : '지금 가입하기'}
-          </button>
-        </p>
       </motion.div>
     </div>
   );

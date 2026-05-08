@@ -5,8 +5,6 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
-import { doc, getDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from './lib/firebase';
 import { AuthScreen } from './components/AuthScreen';
 import { MainLayout } from './components/MainLayout';
 import { Loader2 } from 'lucide-react';
@@ -16,6 +14,7 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [initialAuthMode, setInitialAuthMode] = useState<'login' | 'update'>('login');
 
   useEffect(() => {
     // Check active session
@@ -32,7 +31,12 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
-      if (currentUser) {
+      
+      if (event === 'PASSWORD_RECOVERY') {
+        setInitialAuthMode('update');
+      }
+
+      if (currentUser && event !== 'SIGNED_OUT') {
         fetchUserData(currentUser.id);
       } else {
         setUserData(null);
@@ -51,9 +55,27 @@ export default function App() {
         .eq('id', uid)
         .single();
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') { // PGRST116 is code for 'no rows returned'
+        throw error;
+      }
+      
       if (data) {
         setUserData(data);
+      } else {
+        // Create profile for new social login users
+        const { data: newUser } = await supabase.auth.getUser();
+        if (newUser.user) {
+          const profileData = {
+            id: newUser.user.id,
+            email: newUser.user.email,
+            role: 'fan',
+            display_name: newUser.user.email?.split('@')[0] || '익명',
+            is_verified: true,
+            fans_count: 0
+          };
+          await supabase.from('users').insert([profileData]);
+          setUserData(profileData);
+        }
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -78,14 +100,17 @@ export default function App() {
   return (
     <div className="min-h-screen bg-bg-base text-text-main">
       <AnimatePresence mode="wait">
-        {!user || !userData ? (
+        {!user || (!userData && initialAuthMode !== 'update') ? (
           <motion.div
             key="auth"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <AuthScreen onComplete={(data) => setUserData(data)} />
+            <AuthScreen 
+              onComplete={(data) => setUserData(data)} 
+              initialMode={initialAuthMode}
+            />
           </motion.div>
         ) : (
           <motion.div

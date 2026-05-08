@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- Users ---
+    function isValidUser(data) {
+      return data.uid == request.auth.uid 
+        && data.email is string && data.email.size() <= 256
+        && data.role in ['butler', 'fan']
+        && (data.role == 'fan' || (data.petName is string && data.petName.size() <= 100))
+        && data.isVerified is bool
+        && data.createdAt == request.time;
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn(); // For fan lists
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) 
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'petName', 'hospital', 'fansCount'])
+        && (request.resource.data.role == resource.data.role); // Immutable role
+    }
+
+    match /users/{userId}/follows/{fanId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(fanId) && isValidId(userId);
+      allow delete: if isOwner(fanId);
+    }
+
+    // --- Posts ---
+    function isValidPost(data) {
+      return data.butlerId == request.auth.uid
+        && data.imageUrl is string && data.imageUrl.size() <= 1500000
+        && data.heartsCount == 0
+        && data.createdAt == request.time;
+    }
+
+    match /posts/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() 
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'butler'
+        && isValidPost(request.resource.data);
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['heartsCount']);
+      allow delete: if isSignedIn() 
+        && resource.data.butlerId == request.auth.uid;
+    }
+
+    match /posts/{postId}/hearts/{userId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isOwner(userId);
+    }
+  }
+}

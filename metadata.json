@@ -1,0 +1,12 @@
+{
+  "name": "PawPaw (포포)",
+  "description": "반려동물의 귀여움과 건강에 집중하는 클린 커뮤니티 & AI 케어 서비스",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "AI Image Verification",
+    "AI Pet Health Consultation"
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a user in the PawPaw platform.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["butler", "fan"] },
+        "petName": { "type": "string" },
+        "hospital": { "type": "string" },
+        "isVerified": { "type": "boolean" },
+        "fansCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role", "isVerified"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "A pet photo post in the 'Cute' tab.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "butlerId": { "type": "string" },
+        "butlerName": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "caption": { "type": "string" },
+        "petCategory": { "type": "string" },
+        "heartsCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "butlerId", "imageUrl", "createdAt"]
+    },
+    "Heart": {
+      "title": "Heart",
+      "description": "A 'cute' reaction to a post.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "userId", "createdAt"]
+    },
+    "Follow": {
+      "title": "Follow",
+      "description": "A fan following a butler.",
+      "type": "object",
+      "properties": {
+        "fanId": { "type": "string" },
+        "butlerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fanId", "butlerId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and verification status."
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Pet photos uploaded by butlers."
+    },
+    "/posts/{postId}/hearts/{userId}": {
+      "schema": "Heart",
+      "description": "Hearts given to a specific post."
+    },
+    "/users/{userId}/follows/{fanId}": {
+      "schema": "Follow",
+      "description": "Fans following a butler."
+    }
+  }
+}

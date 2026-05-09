@@ -4,22 +4,27 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
 
 export async function verifyPetImage(base64Image: string, mimeType: string) {
   const model = "gemini-3-flash-preview";
-  const prompt = `You are a pet verification AI for a community called "PawPaw". 
-  Analyze the provided image and decide if it's suitable for a "Cute" pet community.
+  const prompt = `You are a pet verification AI for "PawPaw", a community for pet lovers. 
+  Your primary goal is to ensure the image contains a LIVING PET.
   
-  Verification Rules (Strict but inclusive of partial views):
-  1. The image MUST contain a genuine pet (dog, cat, hamster, rabbit, bird, etc.).
-  2. The pet parts (e.g., head, paws, tail, fur texture, ears, nose) are SUFFICIENT to identify it as a pet. 
-  3. Even if the full body is not visible, if the features clearly belong to a living pet, it passes.
-  4. Humans are allowed ONLY if they are holding or interacting with the pet (the pet remains the focus).
-  5. NO screenshots, drawings, toys, or non-living items.
-  6. NO offensive/violent content.
+  Verification Rules (Be generous & inclusive):
+  1. PASS if the image contains any part of a genuine living pet (dog, cat, rabbit, hamster, bird, etc.).
+  2. Partial views (ears, paws, tail, fur, nose, eyes) are 100% valid as long as they clearly belong to a pet.
+  3. Close-up shots of fur or features are valid.
+  4. Humans interacting with pets is ALLOWED (pet should be recognizable).
+  5. REJECT ONLY IF:
+     - No pet parts are visible at all.
+     - It's a screenshot/UI of another app.
+     - It's a toy, drawing, or non-living object.
+     - It's offensive/unsafe.
+  
+  Decision Guideline: If you are unsure but it looks like it COULD be a pet, FAVOR THE USER and MARK AS PASSED.
   
   Return a JSON object:
   {
     "passed": boolean,
-    "category": string (e.g., "dog", "cat", "other"),
-    "reason": string (brief explanation if failed, in Korean. e.g., "반려동물의 특징이 명확하지 않습니다.")
+    "category": string (e.g., "dog", "cat", "etc"),
+    "reason": string (If failed, explain why in Korean. If passed, you can keep it empty.)
   }`;
 
   try {

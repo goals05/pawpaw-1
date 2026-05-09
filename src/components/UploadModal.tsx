@@ -44,9 +44,9 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
       const mimeType = preview?.split(';')[0].split(':')[1] || 'image/jpeg';
       const aiResult = await verifyPetImage(image, mimeType);
 
-      if (!aiResult.passed) {
+      if (aiResult.passed === false) {
         setStatus('failed');
-        setErrorMessage(aiResult.reason || '반려동물 사진이 아닌 것 같아요.');
+        setErrorMessage(aiResult.reason || '이미지에서 우리 식구(반려동물)를 찾지 못했습니다. 다시 한번 확인해 주세요!');
         setLoading(false);
         return;
       }

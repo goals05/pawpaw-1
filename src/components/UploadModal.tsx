@@ -17,6 +17,7 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'verifying' | 'failed' | 'passed'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [canSkip, setCanSkip] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -29,6 +30,7 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
         setImage(base64.split(',')[1]); // Just the data part
         setStatus('idle');
         setErrorMessage('');
+        setCanSkip(false);
       };
       reader.readAsDataURL(file);
     }
@@ -38,6 +40,7 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
     if (!image) return;
     setLoading(true);
     setStatus('verifying');
+    setCanSkip(false);
 
     try {
       // 1. AI Verification
@@ -46,18 +49,28 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
 
       if (aiResult.passed === false) {
         setStatus('failed');
-        setErrorMessage(aiResult.reason || '이미지에서 우리 식구(반려동물)를 찾지 못했습니다. 다시 한번 확인해 주세요!');
+        setErrorMessage(aiResult.reason || 'AI가 사진 속 식구가 누구인지 헷갈려하네요.');
+        setCanSkip(!!aiResult.canSkip);
         setLoading(false);
         return;
       }
 
-      setStatus('passed');
+      await finalizeUpload();
+    } catch (err: any) {
+      setErrorStatus(err.message || '업로드 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // 2. Upload to Supabase DB
+  const finalizeUpload = async () => {
+    setLoading(true);
+    try {
+      setStatus('passed');
       const postData = {
         butler_id: user.id,
         butler_name: userData.display_name || user.email?.split('@')[0] || '포 집사',
-        image_url: preview, // Using the full data URL for display
+        image_url: preview,
         caption,
         hearts_count: 0,
       };
@@ -69,9 +82,7 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
       if (dbError) throw dbError;
       onClose();
     } catch (err: any) {
-      setErrorStatus(err.message || '업로드 중 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
+      setErrorStatus(err.message || '저장 중 오류가 발생했습니다.');
     }
   };
 
@@ -130,12 +141,22 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
                       <AlertCircle className="w-12 h-12 text-red-400 mb-4" />
                       <p className="font-black text-red-900 text-sm tracking-tight uppercase">Hold on!</p>
                       <p className="text-[10px] text-red-600 mt-1 font-medium leading-relaxed">{errorMessage}</p>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                        className="mt-6 px-5 py-2.5 bg-white text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm border border-red-100 active:scale-95 transition-transform"
-                      >
-                        Try Again
-                      </button>
+                      <div className="mt-6 flex flex-col gap-2 w-full px-4">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                          className="w-full py-2.5 bg-brand text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm active:scale-95 transition-transform"
+                        >
+                          Try Different Photo
+                        </button>
+                        {canSkip && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); finalizeUpload(); }}
+                            className="w-full py-2.5 bg-white text-text-sub/50 hover:text-text-sub border border-border-base rounded-xl text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-all"
+                          >
+                            우리 식구가 확실해요! (검사 건너뛰기)
+                          </button>
+                        )}
+                      </div>
                     </motion.div>
                   )}
                   {status === 'passed' && (
@@ -184,9 +205,9 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
               <AlertCircle className="w-3.5 h-3.5 text-brand" /> Policy
             </h4>
             <ul className="text-[10px] text-text-sub space-y-1 font-medium leading-relaxed opacity-80">
-              <li>• 반려동물이 명확하게 보여야 인증이 통과됩니다.</li>
-              <li>• 본 서비스는 인격권 보호를 위해 사람 얼굴 노출을 지양합니다.</li>
-              <li>• 따뜻한 관심만이 가득한 공간을 함께 만들어주세요.</li>
+              <li>• 발바닥, 귀, 털 무늬 등 반려동물의 신체 일부가 잘 보여야 합니다.</li>
+              <li>• 사람만 있는 사진이나 부적절한 콘텐츠는 업로드가 제한됩니다.</li>
+              <li>• AI가 판단하기 어려운 경우에만 건너뛰기 기능이 활성화됩니다.</li>
             </ul>
           </div>
         </div>

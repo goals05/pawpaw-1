@@ -23,14 +23,40 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 800;
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const resizedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+          setPreview(resizedBase64);
+          setImage(resizedBase64.split(',')[1]);
+          setStatus('idle');
+          setErrorMessage('');
+          setCanSkip(false);
+        }
+      };
+      
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setPreview(base64);
-        setImage(base64.split(',')[1]); // Just the data part
-        setStatus('idle');
-        setErrorMessage('');
-        setCanSkip(false);
+        img.src = reader.result as string;
       };
       reader.readAsDataURL(file);
     }
@@ -89,7 +115,19 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
       setTimeout(() => onClose(), 800);
     } catch (err: any) {
       console.error("Save error:", err);
-      setErrorStatus(err.message || '저장 중 오류가 발생했습니다.');
+      let errorMsg = err.message || '';
+      let displayMsg = '저장 중 오류가 발생했습니다.';
+      
+      if (errorMsg.toLowerCase().includes('payload too large') || errorMsg.toLowerCase().includes('request size')) {
+        displayMsg = '사진 용량이 너무 큽니다. 다른 사진을 시도해주세요.';
+      } else if (errorMsg.toLowerCase().includes('failed to fetch')) {
+        displayMsg = '네트워크 연결이 원활하지 않습니다.';
+      } else if (errorMsg) {
+        // If it's a supabase string limit or similar
+        displayMsg = `오류가 발생했습니다: ${errorMsg}`;
+      }
+      
+      setErrorStatus(displayMsg);
     } finally {
       // setLoading(false); // Handled by onClose or error
     }

@@ -37,7 +37,7 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
   };
 
   const handleUpload = async () => {
-    if (!image) return;
+    if (!image || loading) return;
     setLoading(true);
     setStatus('verifying');
     setCanSkip(false);
@@ -48,24 +48,29 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
       const aiResult = await verifyPetImage(image, mimeType);
 
       if (aiResult.passed === true) {
-        await finalizeUpload();
+        // Pass directly to saving logic
+        await performSave();
       } else {
         setStatus('failed');
         setErrorMessage(aiResult.reason || 'AI가 사진 속 식구가 누구인지 헷갈려하네요.');
-        setCanSkip(aiResult.canSkip !== false); // Default to true unless explicitly false
+        setCanSkip(aiResult.canSkip !== false);
         setLoading(false);
       }
     } catch (err: any) {
       setErrorStatus(err.message || '업로드 중 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
     }
   };
 
   const finalizeUpload = async () => {
+    if (loading && status !== 'failed') return;
+    await performSave();
+  };
+
+  const performSave = async () => {
     setLoading(true);
     try {
-      setStatus('passed');
+      if (!preview) throw new Error('업로드할 사진이 유효하지 않습니다.');
+
       const postData = {
         butler_id: user.id,
         butler_name: userData.display_name || user.email?.split('@')[0] || '포 집사',
@@ -79,9 +84,14 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
         .insert([postData]);
 
       if (dbError) throw dbError;
-      onClose();
+      
+      setStatus('passed');
+      setTimeout(() => onClose(), 800);
     } catch (err: any) {
+      console.error("Save error:", err);
       setErrorStatus(err.message || '저장 중 오류가 발생했습니다.');
+    } finally {
+      // setLoading(false); // Handled by onClose or error
     }
   };
 

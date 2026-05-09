@@ -44,11 +44,22 @@ export async function verifyPetImage(base64Image: string, mimeType: string) {
       }
     });
 
-    const result = JSON.parse(response.text || "{}");
-    return result;
-  } catch (error) {
+    const resultText = response.text || "{}";
+    const result = JSON.parse(resultText);
+    return {
+      passed: result.passed ?? true,
+      canSkip: result.canSkip ?? true,
+      category: result.category || "etc",
+      reason: result.reason || null
+    };
+  } catch (error: any) {
     console.error("Gemini Image Verification Error:", error);
-    return { passed: false, reason: "AI verification failed." };
+    // Be lenient on errors - allow skip
+    return { 
+      passed: false, 
+      canSkip: true, 
+      reason: `AI 검사 중 연결 오류가 발생했습니다. (네트워크 상태를 확인해 주세요)` 
+    };
   }
 }
 

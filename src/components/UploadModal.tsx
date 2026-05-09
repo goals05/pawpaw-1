@@ -47,15 +47,14 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
       const mimeType = preview?.split(';')[0].split(':')[1] || 'image/jpeg';
       const aiResult = await verifyPetImage(image, mimeType);
 
-      if (aiResult.passed === false) {
+      if (aiResult.passed === true) {
+        await finalizeUpload();
+      } else {
         setStatus('failed');
         setErrorMessage(aiResult.reason || 'AI가 사진 속 식구가 누구인지 헷갈려하네요.');
-        setCanSkip(!!aiResult.canSkip);
+        setCanSkip(aiResult.canSkip !== false); // Default to true unless explicitly false
         setLoading(false);
-        return;
       }
-
-      await finalizeUpload();
     } catch (err: any) {
       setErrorStatus(err.message || '업로드 중 오류가 발생했습니다.');
     } finally {

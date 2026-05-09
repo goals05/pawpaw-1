@@ -5,23 +5,25 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
 export async function verifyPetImage(base64Image: string, mimeType: string) {
   const model = "gemini-3-flash-preview";
   const prompt = `You are a pet verification AI for "PawPaw".  
-  Your mission is to check if an image contains a LIVING PET.
+  Analyze the image and determine if it contains a LIVING PET.
   
-  CRITICAL: You MUST be extremely lenient. If there is ANY indication of a pet, you MUST pass it.
+  CRITICAL INSTRUCTION:
+  - You MUST be extremely inclusive. A clear photo of a dog, cat, or any pet is a 100% PASS (passed: true).
+  - Even if there are people or objects around, if a pet is visible, it passes.
+  - Parts of pets (ears, paws, etc.) also pass.
   
-  Verification Rules:
-  1. PASS if you see a pet or parts of a pet.
-  2. ALLOW SKIP (canSkip: true) ONLY IF the image is blurry, has poor lighting, or contains ambiguous textures that LOOK like a pet but aren't 100% clear.
-  3. REJECT & BLOCK SKIP (canSkip: false) IF:
-     - The image is ONLY a human face/body with no pet.
-     - The image is a generic landscape or object with no animals.
-     - The image contains inappropriate, sexual, or violent content.
-     - The image is a screenshot of text/UI.
+  Decision Guide:
+  1. PASS (passed: true, canSkip: true): Recognizable pet presence.
+  2. FAIL BUT ALLOW SKIP (passed: false, canSkip: true): Blurry, dark, or generic textures that MIGHT be a pet but aren't clear. 
+  3. REJECT & BLOCK (passed: false, canSkip: false): 
+     - ONLY human(s) with no pet.
+     - Offensive, sexual, or violent content.
+     - Generic UI, text-only, or stock landscape with no animals.
   
   Return a JSON object:
   {
-    "passed": boolean (true if clearly a pet),
-    "canSkip": boolean (true ONLY if it might be a pet but is unclear. false if it's explicitly prohibited content),
+    "passed": boolean,
+    "canSkip": boolean,
     "category": "dog" | "cat" | "etc",
     "reason": "Brief explanation in Korean if failed."
   }`;

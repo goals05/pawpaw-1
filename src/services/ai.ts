@@ -7,18 +7,19 @@ export async function verifyPetImage(base64Image: string, mimeType: string) {
   const prompt = `You are a pet verification AI for a community called "PawPaw". 
   Analyze the provided image and decide if it's suitable for a "Cute" pet community.
   
-  Verification Rules:
-  1. The image MUST contain a pet (e.g., dog, cat, hamster, rabbit, bird, reptile, etc.).
-  2. The pet must be the clear main subject.
-  3. NO humans should be prominent in the photo.
-  4. NO sexual, violent, or offensive content.
-  5. NO screenshots or obvious copyright violations from other platforms.
+  Verification Rules (Strict but inclusive of partial views):
+  1. The image MUST contain a genuine pet (dog, cat, hamster, rabbit, bird, etc.).
+  2. The pet parts (e.g., head, paws, tail, fur texture, ears, nose) are SUFFICIENT to identify it as a pet. 
+  3. Even if the full body is not visible, if the features clearly belong to a living pet, it passes.
+  4. Humans are allowed ONLY if they are holding or interacting with the pet (the pet remains the focus).
+  5. NO screenshots, drawings, toys, or non-living items.
+  6. NO offensive/violent content.
   
   Return a JSON object:
   {
     "passed": boolean,
-    "category": string (e.g., "dog", "cat", "other", or null if failed),
-    "reason": string (brief reason why it failed, or null if passed)
+    "category": string (e.g., "dog", "cat", "other"),
+    "reason": string (brief explanation if failed, in Korean. e.g., "반려동물의 특징이 명확하지 않습니다.")
   }`;
 
   try {

@@ -104,29 +104,12 @@ export function AuthScreen({ onComplete, initialMode = 'login' }: AuthScreenProp
         setTimeout(() => setAuthMode('login'), 2000);
       }
     } catch (err: any) {
-      setError(err.message);
+      if (err.message.includes('rate limit exceeded')) {
+        setError('이메일 요청 횟수가 초과되었습니다. 잠시(약 5~10분) 후에 다시 시도해 주세요.');
+      } else {
+        setError(err.message);
+      }
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const signInWithGoogle = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      const { error: googleError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        }
-      });
-      if (googleError) throw googleError;
-    } catch (err: any) {
-      setError(`구글 로그인 실패: ${err.message}. Supabase 대시보드에서 Redirect URLs에 현재 도메인이 추가되어 있는지 확인해주세요.`);
       setLoading(false);
     }
   };
@@ -271,28 +254,6 @@ export function AuthScreen({ onComplete, initialMode = 'login' }: AuthScreenProp
             )}
           </button>
         </form>
-
-        {(authMode === 'login' || authMode === 'register') && (
-          <>
-            <div className="relative my-8">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border-base"></div>
-              </div>
-              <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest">
-                <span className="bg-white px-3 text-text-sub">PAW CONNECTION</span>
-              </div>
-            </div>
-
-            <button 
-              onClick={signInWithGoogle}
-              disabled={loading}
-              className="w-full py-3.5 border border-border-base text-brand-brown font-bold text-xs rounded-2xl hover:bg-bg-alt transition-colors flex items-center justify-center gap-2"
-            >
-              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" />
-              구글 계정으로 연결하기
-            </button>
-          </>
-        )}
 
         <div className="mt-8 text-center text-xs font-medium text-text-sub">
           {authMode === 'login' && (

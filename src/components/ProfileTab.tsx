@@ -82,6 +82,35 @@ export function ProfileTab({ user, userData }: ProfileTabProps) {
     await supabase.auth.signOut();
   };
 
+  const handleDeleteAccount = async () => {
+    if (!window.confirm("계정을 정말 삭제하시겠습니까? 작성한 모든 게시물과 프로필 정보가 영구적으로 삭제됩니다. (Supabase Auth 계정은 관리자에 의해 수동으로 제거되어야 함)")) return;
+
+    setLoading(true);
+    try {
+      // 1. Delete Hearts
+      await supabase.from('hearts').delete().eq('user_id', user.id);
+      
+      // 2. Delete Posts (if butler)
+      if (userData.role === 'butler') {
+        // We might want to delete actual images too, but for now we delete db entries
+        await supabase.from('posts').delete().eq('butler_id', user.id);
+      }
+      
+      // 3. Delete Profile
+      await supabase.from('users').delete().eq('id', user.id);
+
+      // 4. Sign out
+      await supabase.auth.signOut();
+      
+      alert("데이터가 삭제되었습니다. 이용해 주셔서 감사합니다.");
+    } catch (err: any) {
+      console.error("Error deleting account:", err);
+      alert("삭제 중 오류가 발생했습니다: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Check which posts are liked by the user in current view
     const currentPosts = activeSubTab === 'grid' ? myPosts : likedPosts;
@@ -268,6 +297,15 @@ export function ProfileTab({ user, userData }: ProfileTabProps) {
             </motion.div>
           ))
         )}
+      </div>
+
+      <div className="p-8 flex justify-center">
+        <button 
+          onClick={handleDeleteAccount}
+          className="text-[10px] font-black text-red-500/30 hover:text-red-500 transition-colors uppercase tracking-widest"
+        >
+          Delete Account
+        </button>
       </div>
     </div>
   );

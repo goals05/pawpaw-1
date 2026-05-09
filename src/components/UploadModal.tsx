@@ -87,9 +87,9 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
-        className="w-full max-w-md bg-white rounded-t-[40px] sm:rounded-[40px] overflow-hidden shadow-2xl border border-border-base"
+        className="w-full max-w-md bg-white rounded-t-[40px] sm:rounded-[40px] overflow-hidden shadow-2xl border border-border-base flex flex-col max-h-[90vh] sm:max-h-[85vh]"
       >
-        <div className="flex items-center justify-between px-6 py-5 border-b border-border-base">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-border-base shrink-0">
           <button onClick={onClose} className="p-2 text-text-sub hover:bg-bg-alt rounded-2xl transition-all">
             <X className="w-5 h-5" />
           </button>
@@ -103,7 +103,7 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
           <div 
             onClick={() => status !== 'verifying' && fileInputRef.current?.click()}
             className={`relative aspect-square rounded-[32px] border-2 border-dashed transition-all flex flex-col items-center justify-center cursor-pointer overflow-hidden ${preview ? 'border-transparent shadow-sm' : 'border-border-base bg-bg-alt hover:bg-brand/5 group'}`}

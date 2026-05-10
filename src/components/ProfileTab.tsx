@@ -136,22 +136,30 @@ export function ProfileTab({ user, userData }: ProfileTabProps) {
 
     // Optimistic UI update
     setMyHearts(prev => ({ ...prev, [postId]: !isHearted }));
+    
+    const updatePosts = (postsArr: any[]) => postsArr.map(p => p.id === postId ? {
+        ...p, hearts_count: isHearted ? Math.max(0, (p.hearts_count || 0) - 1) : (p.hearts_count || 0) + 1
+      } : p);
+    setMyPosts(updatePosts(myPosts));
+    setLikedPosts(updatePosts(likedPosts));
 
     try {
       if (isHearted) {
-        await supabase
+        const { error: heartErr } = await supabase
           .from('hearts')
           .delete()
           .match({ post_id: postId, user_id: user.id });
+        if (heartErr) console.error("Heart error", heartErr);
           
         await supabase
           .from('posts')
           .update({ hearts_count: Math.max(0, (post.hearts_count || 0) - 1) })
           .eq('id', postId);
       } else {
-        await supabase
+        const { error: heartErr } = await supabase
           .from('hearts')
           .insert([{ post_id: postId, user_id: user.id }]);
+        if (heartErr) console.error("Heart error", heartErr);
 
         await supabase
           .from('posts')
@@ -280,10 +288,11 @@ export function ProfileTab({ user, userData }: ProfileTabProps) {
               className="aspect-square bg-bg-alt relative group overflow-hidden first:rounded-tl-[32px] last:rounded-br-[32px]"
             >
               <img 
-                src={post.imageUrl} 
+                src={post.image_url} 
                 className="w-full h-full object-cover group-hover:scale-110 transition-all duration-700" 
                 alt="Pet photo" 
                 loading="lazy"
+                referrerPolicy="no-referrer"
               />
               <div className="absolute inset-0 bg-brand-brown/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
                 <button 

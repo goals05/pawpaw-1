@@ -71,24 +71,32 @@ export function CuteTab({ user }: { user: any }) {
     const post = posts.find(p => p.id === postId);
     if (!post) return;
     
+    // Optimistic UI Update
+    setMyHearts(prev => ({ ...prev, [postId]: !isHearted }));
+    setPosts(posts.map(p => {
+      if (p.id === postId) {
+        return { ...p, hearts_count: isHearted ? Math.max(0, (p.hearts_count || 0) - 1) : (p.hearts_count || 0) + 1 };
+      }
+      return p;
+    }));
+
     try {
       if (isHearted) {
-        setMyHearts(prev => ({ ...prev, [postId]: false }));
-        await supabase
+        const { error: heartErr } = await supabase
           .from('hearts')
           .delete()
           .match({ post_id: postId, user_id: user.id });
+        if (heartErr) console.error("Heart delete error:", heartErr);
         
-        // Simple update: current count - 1
         await supabase
           .from('posts')
           .update({ hearts_count: Math.max(0, (post.hearts_count || 0) - 1) })
           .eq('id', postId);
       } else {
-        setMyHearts(prev => ({ ...prev, [postId]: true }));
-        await supabase
+        const { error: heartErr } = await supabase
           .from('hearts')
           .insert([{ post_id: postId, user_id: user.id }]);
+        if (heartErr) console.error("Heart insert error:", heartErr);
 
         await supabase
           .from('posts')
@@ -97,6 +105,9 @@ export function CuteTab({ user }: { user: any }) {
       }
     } catch (err) {
       console.error('Heart toggle error:', err);
+      // Revert on error
+      setMyHearts(prev => ({ ...prev, [postId]: isHearted }));
+      setPosts(posts.map(p => p.id === postId ? post : p));
     }
   };
 

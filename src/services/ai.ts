@@ -1,6 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
+  (typeof process !== 'undefined' && process.env ? process.env.GEMINI_API_KEY : '');
+
+const ai = new GoogleGenAI({ apiKey: apiKey as string });
 
 export async function verifyPetImage(base64Image: string, mimeType: string) {
   const model = "gemini-3-flash-preview";
@@ -58,7 +61,7 @@ export async function verifyPetImage(base64Image: string, mimeType: string) {
     return { 
       passed: false, 
       canSkip: true, 
-      reason: `AI 검사 중 연결 오류가 발생했습니다. (네트워크 상태를 확인해 주세요)` 
+      reason: `AI 연결 실패: 환경변수 및 네트워크를 확인하세요. (${error.message || error})` 
     };
   }
 }

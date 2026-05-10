@@ -121,10 +121,11 @@ export function UploadModal({ user, userData, onClose }: UploadModalProps) {
       if (errorMsg.toLowerCase().includes('payload too large') || errorMsg.toLowerCase().includes('request size')) {
         displayMsg = '사진 용량이 너무 큽니다. 다른 사진을 시도해주세요.';
       } else if (errorMsg.toLowerCase().includes('failed to fetch')) {
-        displayMsg = '네트워크 연결이 원활하지 않습니다.';
+        displayMsg = '네트워크 연결 실패: Vercel 환경변수(VITE_SUPABASE_URL)를 확인해주세요.';
+      } else if (errorMsg.toLowerCase().includes('row-level security') || errorMsg.toLowerCase().includes('rls')) {
+        displayMsg = 'Supabase 권한 오류 (RLS 정책을 확인해주세요)';
       } else if (errorMsg) {
-        // If it's a supabase string limit or similar
-        displayMsg = `오류가 발생했습니다: ${errorMsg}`;
+        displayMsg = `저장 실패: 환경변수 설정이나 DB를 확인하세요. (${errorMsg})`;
       }
       
       setErrorStatus(displayMsg);

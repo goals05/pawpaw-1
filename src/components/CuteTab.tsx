@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { Heart, Loader2 } from 'lucide-react';
+import { Heart, Loader2, UserPlus, UserCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface Post {
@@ -17,6 +17,7 @@ export function CuteTab({ user }: { user: any }) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [myHearts, setMyHearts] = useState<Record<string, boolean>>({});
+  const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -49,20 +50,26 @@ export function CuteTab({ user }: { user: any }) {
   useEffect(() => {
     if (!user?.id) return;
     
-    const fetchMyHearts = async () => {
-      const { data, error } = await supabase
-        .from('hearts')
-        .select('post_id')
-        .eq('user_id', user.id);
+    const fetchMyHeartsAndFollows = async () => {
+      const [heartsRes, followsRes] = await Promise.all([
+        supabase.from('hearts').select('post_id').eq('user_id', user.id),
+        supabase.from('follows').select('following_id').eq('follower_id', user.id)
+      ]);
 
-      if (!error && data) {
+      if (!heartsRes.error && heartsRes.data) {
         const heartsMap: Record<string, boolean> = {};
-        data.forEach((h: any) => heartsMap[h.post_id] = true);
+        heartsRes.data.forEach((h: any) => heartsMap[h.post_id] = true);
         setMyHearts(heartsMap);
+      }
+
+      if (!followsRes.error && followsRes.data) {
+        const followsMap: Record<string, boolean> = {};
+        followsRes.data.forEach((f: any) => followsMap[f.following_id] = true);
+        setFollowingMap(followsMap);
       }
     };
 
-    fetchMyHearts();
+    fetchMyHeartsAndFollows();
   }, [posts, user?.id]);
 
   const toggleHeart = async (postId: string) => {
@@ -111,6 +118,40 @@ export function CuteTab({ user }: { user: any }) {
     }
   };
 
+  const toggleFollow = async (butlerId: string) => {
+    if (!user?.id || user.id === butlerId) return;
+    const isFollowing = followingMap[butlerId];
+
+    // Optimistic update
+    setFollowingMap(prev => ({ ...prev, [butlerId]: !isFollowing }));
+
+    try {
+      if (isFollowing) {
+        const { error } = await supabase
+          .from('follows')
+          .delete()
+          .match({ follower_id: user.id, following_id: butlerId });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('follows')
+          .insert([{ follower_id: user.id, following_id: butlerId }]);
+        if (error) throw error;
+      }
+    } catch (err) {
+      console.error('Follow toggle error:', err);
+      // Revert optimistic update
+      setFollowingMap(prev => ({ ...prev, [butlerId]: isFollowing }));
+    }
+  };
+
+  const displayPosts = useMemo(() => {
+    if (Object.keys(followingMap).length === 0) return posts;
+    const followed = posts.filter(p => followingMap[p.butler_id]);
+    const others = posts.filter(p => !followingMap[p.butler_id]);
+    return [...followed, ...others];
+  }, [posts, followingMap]);
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 bg-bg-base">
@@ -122,29 +163,54 @@ export function CuteTab({ user }: { user: any }) {
 
   return (
     <div className="p-4 space-y-6">
-      {posts.length === 0 ? (
+      {displayPosts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-text-sub">
           <Heart className="w-12 h-12 mb-4 opacity-10" />
           <p className="font-medium text-sm">아직 올라온 사진이 없어요.</p>
           <p className="text-xs">첫 게시물의 주인공이 되어보세요!</p>
         </div>
       ) : (
-        posts.map((post) => (
+        displayPosts.map((post) => (
           <motion.div
             key={post.id}
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: "-50px" }}
             className="bg-white rounded-[40px] overflow-hidden shadow-sm border border-border-base p-5"
           >
-            <div className="px-1 py-3 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-2xl bg-bg-alt flex items-center justify-center text-brand font-black text-[10px] border border-border-base">
-                {post.butler_name?.charAt(0) || 'P'}
+            <div className="px-1 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-2xl bg-bg-alt flex items-center justify-center text-brand font-black text-[10px] border border-border-base">
+                  {post.butler_name?.charAt(0) || 'P'}
+                </div>
+                <div>
+                  <span className="font-bold text-sm block leading-none">{post.butler_name}</span>
+                  <span className="text-[10px] text-text-sub">@{post.butler_name?.toLowerCase()} • {post.created_at ? new Date(post.created_at).toLocaleDateString() : '방금 전'}</span>
+                </div>
               </div>
-              <div>
-                <span className="font-bold text-sm block leading-none">{post.butler_name}</span>
-                <span className="text-[10px] text-text-sub">@{post.butler_name?.toLowerCase()} • {post.created_at ? new Date(post.created_at).toLocaleDateString() : '방금 전'}</span>
-              </div>
+              
+              {user?.id !== post.butler_id && (
+                <button
+                  onClick={() => toggleFollow(post.butler_id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-colors ${
+                    followingMap[post.butler_id]
+                      ? 'bg-brand/10 text-brand'
+                      : 'bg-brand-brown text-white hover:bg-brand-brown/90'
+                  }`}
+                >
+                  {followingMap[post.butler_id] ? (
+                    <>
+                      <UserCheck className="w-3.5 h-3.5" />
+                      <span>Following</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Follow</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
             
             <div className="relative aspect-square bg-bg-alt rounded-[32px] overflow-hidden flex items-center justify-center border border-border-base">

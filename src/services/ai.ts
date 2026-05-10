@@ -1,6 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
+  (typeof process !== 'undefined' && process.env ? process.env.GEMINI_API_KEY : '') || 
+  "AIzaSyBH4xnBxh4pAS8X06FUzcZjTRfYpySWtk0";
+
+const ai = new GoogleGenAI({ apiKey: apiKey as string });
 
 export async function verifyPetImage(base64Image: string, mimeType: string) {
   const model = "gemini-3-flash-preview";
